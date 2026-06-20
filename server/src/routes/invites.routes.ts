@@ -52,7 +52,16 @@ router.post(
 
     const inviteLink = buildInviteLink(token);
 
-    await emailService.sendInvitationEmail(email, inviteLink, company.name);
+    // The invitation itself is already saved at this point — don't let a
+    // flaky email provider (rate limit, sandbox restrictions, an outage)
+    // fail the whole request. The owner can still see/share `inviteLink`
+    // from the response (the EmployeesPage UI already does this) even if
+    // the email never lands.
+    try {
+      await emailService.sendInvitationEmail(email, inviteLink, company.name);
+    } catch (error) {
+      console.error("[invites] invitation email failed", error);
+    }
 
     return res.status(201).json({ ...invitation, inviteLink });
   }
@@ -154,6 +163,9 @@ router.post("/:token/accept", async (req, res) => {
       role: ROLES.EMPLOYEE,
       companyId: invitation.companyId,
       employeeId: employee.id,
+      // They just proved ownership of this address by opening the emailed
+      // invite link — no separate verification email needed.
+      emailVerified: true,
     },
   });
 
@@ -181,6 +193,7 @@ router.post("/:token/accept", async (req, res) => {
       role: user.role,
       companyId: user.companyId,
       employeeId: user.employeeId,
+      emailVerified: user.emailVerified,
     },
   });
 });

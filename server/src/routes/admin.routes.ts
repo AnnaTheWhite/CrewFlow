@@ -38,12 +38,26 @@ router.get("/users", async (_req, res) => {
   return res.json(users);
 });
 
-// Platform-level activity log. Not implemented yet — this needs a real
-// logging/observability backend (e.g. shipping request logs somewhere
-// queryable). Returning an empty list keeps the frontend honest about that
-// instead of fabricating fake log entries.
+// Platform-level activity log — backed by AuditLog (currently written by
+// account deletion; more actions can log here over time).
 router.get("/logs", async (_req, res) => {
-  return res.json([]);
+  const logs = await prisma.auditLog.findMany({
+    orderBy: { id: "desc" },
+    take: 200,
+    include: { company: { select: { name: true } } },
+  });
+
+  return res.json(
+    logs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      userId: log.userId,
+      companyId: log.companyId,
+      companyName: log.company?.name ?? null,
+      metadata: log.metadata ? JSON.parse(log.metadata) : null,
+      createdAt: log.createdAt,
+    }))
+  );
 });
 
 export default router;

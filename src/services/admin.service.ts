@@ -41,7 +41,17 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   return response.json();
 }
 
-export async function getAdminLogs(): Promise<unknown[]> {
+export type AuditLogEntry = {
+  id: number;
+  action: string;
+  userId: number | null;
+  companyId: number | null;
+  companyName: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export async function getAdminLogs(): Promise<AuditLogEntry[]> {
   const response = await fetch(`${API_URL}/admin/logs`, {
     headers: { ...authHeaders() },
   });

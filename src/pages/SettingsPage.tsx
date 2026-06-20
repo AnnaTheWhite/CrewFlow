@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import Button from "../components/ui/Button";
+import DangerZoneSection from "../components/account/DangerZoneSection";
 import { useAuth } from "../context/AuthContext";
 import { getMyCompany, updateMyCompany } from "../services/company.service";
+import { getSubscriptionStatus } from "../services/subscription.service";
+
+const ACTIVE_STATUSES = ["active", "trialing", "past_due"];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
   useEffect(() => {
     if (!user?.companyId) return;
@@ -16,6 +21,12 @@ export default function SettingsPage() {
     getMyCompany(user.companyId)
       .then((company) => setName(company.name))
       .finally(() => setIsLoading(false));
+
+    getSubscriptionStatus()
+      .then((status) =>
+        setHasActiveSubscription(ACTIVE_STATUSES.includes(status.subscriptionStatus))
+      )
+      .catch(() => setHasActiveSubscription(false));
   }, [user?.companyId]);
 
   async function handleSave() {
@@ -56,6 +67,14 @@ export default function SettingsPage() {
           <Button onClick={handleSave}>Save</Button>
         </div>
       </div>
+
+      <DangerZoneSection
+        warning={
+          hasActiveSubscription
+            ? "You have an active subscription. You'll need to cancel it from the Subscription page before you can delete your account."
+            : undefined
+        }
+      />
     </div>
   );
 }

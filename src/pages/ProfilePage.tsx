@@ -1,4 +1,5 @@
 import PageHeader from "../components/PageHeader";
+import DangerZoneSection from "../components/account/DangerZoneSection";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProfilePage() {
@@ -15,6 +16,8 @@ export default function ProfilePage() {
         <p className="mt-6 text-sm text-slate-400">Role</p>
         <p className="mt-1 text-white">{user?.role}</p>
       </div>
+
+      <DangerZoneSection />
     </div>
   );
 }
