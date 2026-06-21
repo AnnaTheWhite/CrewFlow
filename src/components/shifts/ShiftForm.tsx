@@ -6,7 +6,8 @@ import { getProjects } from "../../services/project.service";
 
 import { useToast } from "../../hooks/useToast";
 import Toast from "../ui/Toast";
-import DateTimePicker from "../ui/DateTimePicker";
+import DatePicker from "../ui/DatePicker";
+import TimePicker from "../ui/TimePicker";
 
 import type { Employee } from "../../types/employee";
 import type { Project } from "../../types/project";
@@ -17,30 +18,54 @@ type ShiftFormProps = {
   onSuccess: () => void;
 };
 
+// "8h 30m" from two "HH:mm" strings on the same day. Returns null when
+// either side is incomplete or the end isn't after the start, so the
+// caller can show a validation message instead of a nonsense duration.
+function formatDuration(startTime: string, endTime: string): string | null {
+  if (!startTime || !endTime) return null;
+
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+
+  const minutes = endH * 60 + endM - (startH * 60 + startM);
+  if (minutes <= 0) return null;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
 export default function ShiftForm({ shift = null, onSuccess }: ShiftFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
   const [employeeId, setEmployeeId] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [notes, setNotes] = useState("");
 
   const { show, message, triggerToast } = useToast();
+
+  const duration = formatDuration(startTime, endTime);
+  const hasTimeRangeError = Boolean(startTime && endTime && !duration);
 
   useEffect(() => {
     if (shift) {
       setEmployeeId(String(shift.employeeId));
       setProjectId(shift.projectId ? String(shift.projectId) : "");
-      setStart(shift.start.slice(0, 16));
-      setEnd(shift.end.slice(0, 16));
+      setDate(shift.start.slice(0, 10));
+      setStartTime(shift.start.slice(11, 16));
+      setEndTime(shift.end.slice(11, 16));
       setNotes(shift.notes ?? "");
     } else {
       setEmployeeId("");
       setProjectId("");
-      setStart("");
-      setEnd("");
+      setDate("");
+      setStartTime("");
+      setEndTime("");
       setNotes("");
     }
   }, [shift]);
@@ -69,11 +94,16 @@ export default function ShiftForm({ shift = null, onSuccess }: ShiftFormProps) {
       return;
     }
 
+    if (hasTimeRangeError) {
+      triggerToast("End time must be after start time");
+      return;
+    }
+
     const data = {
       employeeId: Number(employeeId),
       projectId: projectId ? Number(projectId) : null,
-      start,
-      end,
+      start: `${date}T${startTime}`,
+      end: `${date}T${endTime}`,
       notes,
     };
 
@@ -130,24 +160,53 @@ export default function ShiftForm({ shift = null, onSuccess }: ShiftFormProps) {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-slate-400">Start</label>
-          <DateTimePicker
-            value={start}
-            onChange={setStart}
-            placeholder="Select start time"
+          <label className="mb-2 block text-sm text-slate-400">Date</label>
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            placeholder="Select date"
             required
           />
         </div>
 
-        <div>
-          <label className="mb-2 block text-sm text-slate-400">End</label>
-          <DateTimePicker
-            value={end}
-            onChange={setEnd}
-            placeholder="Select end time"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="mb-2 block text-sm text-slate-400">Start Time</label>
+            <TimePicker
+              value={startTime}
+              onChange={setStartTime}
+              placeholder="Select start time"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm text-slate-400">End Time</label>
+            <TimePicker
+              value={endTime}
+              onChange={setEndTime}
+              placeholder="Select end time"
+              required
+            />
+          </div>
         </div>
+
+        {startTime && endTime && (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <p className="text-sm text-slate-400">
+              {startTime} → {endTime}
+            </p>
+            {duration ? (
+              <p className="mt-1 text-lg font-semibold text-white">
+                Duration: {duration}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-red-400">
+                End time must be after start time
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="mb-2 block text-sm text-slate-400">Notes</label>

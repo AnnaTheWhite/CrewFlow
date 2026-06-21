@@ -8,8 +8,19 @@ type MyShift = {
   start: string;
   end: string | null;
   notes?: string;
-  project?: { name: string } | null;
+  project?: {
+    name: string;
+    address?: string | null;
+    customer?: { address?: string | null } | null;
+  } | null;
 };
+
+// Project address, falling back to the customer's address — employees need
+// to know where to go, not the project's raw GPS coordinates.
+function workAddress(project: MyShift["project"]): string | null {
+  if (!project) return null;
+  return project.address || project.customer?.address || null;
+}
 
 export default function MySchedulePage() {
   const [shifts, setShifts] = useState<MyShift[]>([]);
@@ -36,6 +47,7 @@ export default function MySchedulePage() {
                 <th className="p-4">Start</th>
                 <th className="p-4">End</th>
                 <th className="p-4">Project</th>
+                <th className="p-4">Location</th>
                 <th className="p-4">Notes</th>
               </tr>
             </thead>
@@ -47,6 +59,7 @@ export default function MySchedulePage() {
                     {shift.end ? new Date(shift.end).toLocaleString() : "In progress"}
                   </td>
                   <td className="p-4">{shift.project?.name ?? "—"}</td>
+                  <td className="p-4">{workAddress(shift.project) ?? "—"}</td>
                   <td className="p-4">{shift.notes ?? "—"}</td>
                 </tr>
               ))}

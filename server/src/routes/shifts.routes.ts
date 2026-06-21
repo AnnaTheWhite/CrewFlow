@@ -38,10 +38,13 @@ router.get(
 );
 
 // The caller's own shifts. EMPLOYEE only.
+// Includes project.customer so the frontend can show a work address
+// (falling back to the customer's address when the project has none set)
+// instead of raw GPS coordinates — see MyTimePage/MySchedulePage.
 router.get("/me", requireRole(ROLES.EMPLOYEE), async (req, res) => {
   const shifts = await prisma.shift.findMany({
     where: { employeeId: req.user!.employeeId! },
-    include: { project: true },
+    include: { project: { include: { customer: true } } },
     orderBy: { start: "desc" },
   });
 

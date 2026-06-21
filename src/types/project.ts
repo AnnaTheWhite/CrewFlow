@@ -13,6 +13,7 @@ export type Project = {
   customer?: {
     id: number;
     name: string;
+    address?: string | null;
   };
   assignments?: {
     id: number;

@@ -18,6 +18,10 @@ lastName: string;
 project?: {
 id: number;
 name: string;
+address?: string | null;
+customer?: {
+  address?: string | null;
+};
 };
 
 createdAt: string;

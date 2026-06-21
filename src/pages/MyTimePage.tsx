@@ -9,8 +9,24 @@ type MyShift = {
   id: number;
   start: string;
   end: string | null;
-  project: { id: number; name: string } | null;
+  project: {
+    id: number;
+    name: string;
+    address?: string | null;
+    customer?: { address?: string | null } | null;
+  } | null;
 };
+
+// Project address, falling back to the customer's address — employees need
+// to know where to go, not the project's raw GPS coordinates (those stay
+// database-only, see Project.latitude/longitude).
+function workAddress(project: {
+  address?: string | null;
+  customer?: { address?: string | null } | null;
+} | null | undefined): string | null {
+  if (!project) return null;
+  return project.address || project.customer?.address || null;
+}
 
 export default function MyTimePage() {
   const [shifts, setShifts] = useState<MyShift[]>([]);
@@ -80,9 +96,17 @@ export default function MyTimePage() {
         </p>
 
         {openShift && (
-          <p className="mt-1 text-slate-400">
-            Project: <span className="text-white">{openShift.project?.name ?? "—"}</span>
-          </p>
+          <>
+            <p className="mt-1 text-slate-400">
+              Project: <span className="text-white">{openShift.project?.name ?? "—"}</span>
+            </p>
+            <p className="mt-1 text-slate-400">
+              Where:{" "}
+              <span className="text-white">
+                {workAddress(openShift.project) ?? "No address set"}
+              </span>
+            </p>
+          </>
         )}
 
         {error && (
@@ -104,11 +128,15 @@ export default function MyTimePage() {
                 className="min-w-[220px]"
               >
                 <option value="">Select a project...</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
+                {projects.map((project) => {
+                  const address = workAddress(project);
+                  return (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                      {address ? ` — ${address}` : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               <Button onClick={handleClockIn}>Clock in</Button>
@@ -124,6 +152,7 @@ export default function MyTimePage() {
               <th className="p-4">Start</th>
               <th className="p-4">End</th>
               <th className="p-4">Project</th>
+              <th className="p-4">Location</th>
             </tr>
           </thead>
           <tbody>
@@ -134,6 +163,7 @@ export default function MyTimePage() {
                   {shift.end ? new Date(shift.end).toLocaleString() : "In progress"}
                 </td>
                 <td className="p-4">{shift.project?.name ?? "—"}</td>
+                <td className="p-4">{workAddress(shift.project) ?? "—"}</td>
               </tr>
             ))}
           </tbody>
