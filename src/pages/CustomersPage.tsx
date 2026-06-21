@@ -168,10 +168,10 @@ export default function CustomersPage() {
   );
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-4 sm:p-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Customers</h1>
+          <h1 className="text-2xl font-bold sm:text-4xl">Customers</h1>
           <p className="mt-2 text-slate-400">
             Total Customers: {customers.length}
           </p>
@@ -182,7 +182,7 @@ export default function CustomersPage() {
             resetForm();
             setIsAddModalOpen(true);
           }}
-          className="rounded-xl bg-orange-500 px-5 py-3 font-medium text-white hover:bg-orange-600"
+          className="w-full rounded-xl bg-orange-500 px-5 py-3 font-medium text-white hover:bg-orange-600 sm:w-auto"
         >
           Add Customer
         </button>
@@ -219,7 +219,7 @@ export default function CustomersPage() {
                 <p className="text-slate-400">{customer.address}</p>
               )}
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => openHistory(customer)}
                   className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10"

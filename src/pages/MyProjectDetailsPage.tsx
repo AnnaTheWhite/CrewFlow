@@ -26,7 +26,7 @@ export default function MyProjectDetailsPage() {
 
   if (project === null) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <EmptyState
           title="Project not found"
           description="It may have been deleted, or you're not assigned to it."
@@ -36,7 +36,7 @@ export default function MyProjectDetailsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <Link to="/my-projects" className="text-sm text-orange-500 hover:underline">
         ← Back to my projects
       </Link>

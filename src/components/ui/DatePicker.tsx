@@ -116,7 +116,7 @@ export default function DatePicker({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-2 w-72 rounded-2xl border border-white/10 bg-slate-900 p-4 shadow-2xl">
+        <div className="absolute z-50 mt-2 w-[calc(100vw-2rem)] max-w-72 rounded-2xl border border-white/10 bg-slate-900 p-4 shadow-2xl sm:w-72">
           {/* Header */}
           <div className="mb-4 flex items-center justify-between">
             <button

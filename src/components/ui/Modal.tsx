@@ -23,14 +23,17 @@ export default function Modal({
         items-center
         justify-center
         bg-black/70
+        p-4
         backdrop-blur-sm
       "
     >
       <div
         className="
           relative
+          max-h-[90vh]
           w-full
           max-w-2xl
+          overflow-y-auto
           rounded-3xl
           border
           border-white/10
@@ -45,10 +48,11 @@ export default function Modal({
             justify-between
             border-b
             border-white/10
-            p-6
+            p-4
+            sm:p-6
           "
         >
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-xl font-bold sm:text-2xl">
             {title}
           </h2>
 
@@ -65,7 +69,7 @@ export default function Modal({
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {children}
         </div>
       </div>

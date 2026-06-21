@@ -86,10 +86,10 @@ export default function MyTimePage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader title="My Time" subtitle="Track your worked hours." />
 
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl sm:p-8">
         <p className="text-sm text-slate-400">Current status</p>
         <p className="mt-2 text-2xl font-bold text-white">
           {openShift ? "Clocked in" : "Clocked out"}
@@ -117,15 +117,15 @@ export default function MyTimePage() {
 
         <div className="mt-6">
           {openShift ? (
-            <Button variant="danger" onClick={handleClockOut}>
+            <Button variant="danger" size="lg" onClick={handleClockOut}>
               Clock out
             </Button>
           ) : (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="min-w-[220px]"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white sm:min-w-[220px] sm:flex-1"
               >
                 <option value="">Select a project...</option>
                 {projects.map((project) => {
@@ -139,35 +139,65 @@ export default function MyTimePage() {
                 })}
               </select>
 
-              <Button onClick={handleClockIn}>Clock in</Button>
+              <Button size="lg" onClick={handleClockIn}>
+                Clock in
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-white/10 text-left">
-              <th className="p-4">Start</th>
-              <th className="p-4">End</th>
-              <th className="p-4">Project</th>
-              <th className="p-4">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shifts.map((shift) => (
-              <tr key={shift.id} className="border-b border-white/5">
-                <td className="p-4">{new Date(shift.start).toLocaleString()}</td>
-                <td className="p-4">
-                  {shift.end ? new Date(shift.end).toLocaleString() : "In progress"}
-                </td>
-                <td className="p-4">{shift.project?.name ?? "—"}</td>
-                <td className="p-4">{workAddress(shift.project) ?? "—"}</td>
+      {/* Mobile: stacked cards (no horizontal scroll). Desktop: table. */}
+      <div className="mt-8 space-y-3 sm:hidden">
+        {shifts.map((shift) => (
+          <div key={shift.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Start</span>
+              <span className="text-white">{new Date(shift.start).toLocaleString()}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-slate-400">End</span>
+              <span className="text-white">
+                {shift.end ? new Date(shift.end).toLocaleString() : "In progress"}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-slate-400">Project</span>
+              <span className="text-white">{shift.project?.name ?? "—"}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-slate-400">Location</span>
+              <span className="text-right text-white">{workAddress(shift.project) ?? "—"}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 hidden overflow-hidden rounded-3xl border border-white/10 bg-white/5 sm:block">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/10 text-left">
+                <th className="p-4">Start</th>
+                <th className="p-4">End</th>
+                <th className="p-4">Project</th>
+                <th className="p-4">Location</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {shifts.map((shift) => (
+                <tr key={shift.id} className="border-b border-white/5">
+                  <td className="p-4">{new Date(shift.start).toLocaleString()}</td>
+                  <td className="p-4">
+                    {shift.end ? new Date(shift.end).toLocaleString() : "In progress"}
+                  </td>
+                  <td className="p-4">{shift.project?.name ?? "—"}</td>
+                  <td className="p-4">{workAddress(shift.project) ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

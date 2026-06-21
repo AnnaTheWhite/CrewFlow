@@ -135,7 +135,7 @@ export default function AttachmentsSection({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`mt-4 cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition ${
+        className={`mt-4 cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition sm:p-8 ${
           isDragging
             ? "border-orange-500 bg-orange-500/10"
             : "border-white/10 bg-white/5 hover:border-white/20"
@@ -234,7 +234,7 @@ export default function AttachmentsSection({
                           e.stopPropagation();
                           handleDelete(attachment.id);
                         }}
-                        className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-red-400 opacity-0 transition group-hover:opacity-100"
+                        className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-red-400 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         Delete
                       </span>
@@ -256,12 +256,12 @@ export default function AttachmentsSection({
                 {documents.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <span className="text-2xl">📄</span>
-                      <div>
-                        <p className="text-sm font-medium text-white">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">
                           {attachment.fileName}
                         </p>
                         <p className="text-xs text-slate-500">
@@ -272,7 +272,7 @@ export default function AttachmentsSection({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       <a
                         href={attachmentDownloadUrl(attachment.fileUrl)}
                         target="_blank"

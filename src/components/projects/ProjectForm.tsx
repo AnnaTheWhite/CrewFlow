@@ -132,7 +132,7 @@ export default function ProjectForm({ onSuccess }: ProjectFormProps) {
                 feature, which isn't active yet — safe to leave blank.
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm text-slate-400">Latitude</label>
                   <input

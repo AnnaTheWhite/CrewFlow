@@ -17,7 +17,7 @@ export default function MyProjectsPage() {
   }, []);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader title="My Projects" subtitle="Projects you're assigned to." />
 
       {isLoading ? null : projects.length === 0 ? (

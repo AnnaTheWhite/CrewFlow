@@ -26,7 +26,7 @@ export default function ProjectDetailsPage() {
 
   if (project === null) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <EmptyState
           title="Project not found"
           description="It may have been deleted, or you don't have access to it."
@@ -38,7 +38,7 @@ export default function ProjectDetailsPage() {
   const hasCoordinates = project.latitude != null && project.longitude != null;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <Link to="/projects" className="text-sm text-orange-500 hover:underline">
         ← Back to projects
       </Link>
@@ -46,7 +46,7 @@ export default function ProjectDetailsPage() {
       <PageHeader title={project.name} subtitle={project.description} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl sm:p-8">
           <h3 className="text-lg font-semibold text-white">Overview</h3>
 
           <p className="mt-4 text-sm text-slate-400">Status</p>
@@ -65,7 +65,7 @@ export default function ProjectDetailsPage() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl sm:p-8">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white">Site location</h3>
             <span

@@ -21,7 +21,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader title="Dashboard" subtitle="Your company at a glance." />
         <Loading />
       </div>
@@ -30,7 +30,7 @@ export default function DashboardPage() {
 
   if (!data) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <PageHeader title="Dashboard" subtitle="Your company at a glance." />
         <EmptyState
           title="Couldn't load the dashboard"
@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const { kpis, activeNow, hoursByProject, upcomingShifts } = data;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader title="Dashboard" subtitle="Your company at a glance." />
 
       {/* KPI cards */}
@@ -99,22 +99,24 @@ export default function DashboardPage() {
             />
           ) : (
             <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-white/10 text-left">
-                    <th className="p-4">Project</th>
-                    <th className="p-4">Hours</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hoursByProject.slice(0, 5).map((row) => (
-                    <tr key={row.projectId} className="border-b border-white/5">
-                      <td className="p-4">{row.projectName}</td>
-                      <td className="p-4">{row.hours.toFixed(1)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left">
+                      <th className="p-4">Project</th>
+                      <th className="p-4">Hours</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {hoursByProject.slice(0, 5).map((row) => (
+                      <tr key={row.projectId} className="border-b border-white/5">
+                        <td className="p-4">{row.projectName}</td>
+                        <td className="p-4">{row.hours.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -131,29 +133,31 @@ export default function DashboardPage() {
           />
         ) : (
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/10 text-left">
-                  <th className="p-4">Employee</th>
-                  <th className="p-4">Project</th>
-                  <th className="p-4">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingShifts.map((shift) => (
-                  <tr key={shift.id} className="border-b border-white/5">
-                    <td className="p-4">{shift.employeeName}</td>
-                    <td className="p-4">{shift.projectName ?? "—"}</td>
-                    <td className="p-4">
-                      {new Date(shift.start).toLocaleString([], {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10 text-left">
+                    <th className="p-4">Employee</th>
+                    <th className="p-4">Project</th>
+                    <th className="p-4">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {upcomingShifts.map((shift) => (
+                    <tr key={shift.id} className="border-b border-white/5">
+                      <td className="p-4">{shift.employeeName}</td>
+                      <td className="p-4">{shift.projectName ?? "—"}</td>
+                      <td className="p-4">
+                        {new Date(shift.start).toLocaleString([], {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>

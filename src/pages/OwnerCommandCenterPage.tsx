@@ -252,7 +252,7 @@ export default function OwnerCommandCenterPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader
         title="Owner Command Center"
         subtitle="Quick capture for thoughts, reminders, and project notes."
@@ -440,7 +440,7 @@ export default function OwnerCommandCenterPage() {
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500 sm:w-auto"
         >
           <option value="">All projects</option>
           {projects.map((project) => (
@@ -453,7 +453,7 @@ export default function OwnerCommandCenterPage() {
         <select
           value={customerFilter}
           onChange={(e) => setCustomerFilter(e.target.value)}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500 sm:w-auto"
         >
           <option value="">All customers</option>
           {customers.map((customer) => (
@@ -463,14 +463,14 @@ export default function OwnerCommandCenterPage() {
           ))}
         </select>
 
-        <div className="w-48">
+        <div className="w-full sm:w-48">
           <DatePicker value={dateFilter} onChange={setDateFilter} placeholder="Filter by date" />
         </div>
 
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as Priority | "All")}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500 sm:w-auto"
         >
           <option value="All">All priorities</option>
           {PRIORITIES.map((priority) => (

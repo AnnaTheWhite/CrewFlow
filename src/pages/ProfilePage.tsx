@@ -6,7 +6,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader title="Profile" subtitle="Your account details." />
 
       <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">

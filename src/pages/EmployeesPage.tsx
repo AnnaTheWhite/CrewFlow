@@ -153,10 +153,10 @@ export default function EmployeesPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-4 sm:p-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold">
+          <h1 className="text-2xl font-bold sm:text-4xl">
             Employees
           </h1>
 
@@ -168,7 +168,7 @@ export default function EmployeesPage() {
         <div className="flex gap-3">
           <button
             onClick={() => setIsInviteModalOpen(true)}
-            className="rounded-xl bg-orange-500 px-5 py-3 font-medium text-white hover:bg-orange-600"
+            className="w-full rounded-xl bg-orange-500 px-5 py-3 font-medium text-white hover:bg-orange-600 sm:w-auto"
           >
             Invite employee
           </button>
@@ -206,78 +206,133 @@ export default function EmployeesPage() {
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/10 text-left">
-                <th className="p-4">ID</th>
-                <th className="p-4">First Name</th>
-                <th className="p-4">Last Name</th>
-                <th className="p-4">Phone</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Change</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
+        <>
+          {/* Mobile: cards (no horizontal scroll). Desktop: table. */}
+          <div className="space-y-4 sm:hidden">
+            {filteredEmployees.map((employee) => (
+              <div
+                key={employee.id}
+                className="rounded-3xl border border-white/10 bg-white/5 p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-white">
+                      {employee.firstName} {employee.lastName}
+                    </p>
+                    {employee.email && (
+                      <p className="text-sm text-slate-400">{employee.email}</p>
+                    )}
+                    {employee.phone && (
+                      <p className="text-sm text-slate-400">{employee.phone}</p>
+                    )}
+                  </div>
+                  {getStatusBadge(employee.status)}
+                </div>
 
-            <tbody>
-              {filteredEmployees.map((employee) => (
-                <tr
-                  key={employee.id}
-                  className="border-b border-white/5"
+                <select
+                  value={employee.status}
+                  onChange={(e) => handleStatusChange(employee.id, e.target.value)}
+                  className="mt-4 w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2"
                 >
-                  <td className="p-4">{employee.id}</td>
-                  <td className="p-4">{employee.firstName}</td>
-                  <td className="p-4">{employee.lastName}</td>
-                  <td className="p-4">{employee.phone}</td>
-                  <td className="p-4">{employee.email}</td>
+                  <option value="Active">Active</option>
+                  <option value="Sick">Sick</option>
+                  <option value="Vacation">Vacation</option>
+                </select>
 
-                  <td className="p-4">
-                    {getStatusBadge(employee.status)}
-                  </td>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => setEmployeeToEdit(employee)}
+                    className="flex-1 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/20"
+                  >
+                    ✏ Edit
+                  </button>
 
-                  <td className="p-4">
-                    <select
-                      value={employee.status}
-                      onChange={(e) =>
-                        handleStatusChange(
-                          employee.id,
-                          e.target.value
-                        )
-                      }
-                      className="rounded-xl border border-white/10 bg-slate-800 px-3 py-2"
+                  <button
+                    onClick={() => setEmployeeToDelete(employee)}
+                    className="flex-1 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400 hover:bg-red-500/20"
+                  >
+                    🗑 Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-3xl border border-white/10 bg-white/5 sm:block">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10 text-left">
+                    <th className="p-4">ID</th>
+                    <th className="p-4">First Name</th>
+                    <th className="p-4">Last Name</th>
+                    <th className="p-4">Phone</th>
+                    <th className="p-4">Email</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Change</th>
+                    <th className="p-4">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredEmployees.map((employee) => (
+                    <tr
+                      key={employee.id}
+                      className="border-b border-white/5"
                     >
-                      <option value="Active">Active</option>
-                      <option value="Sick">Sick</option>
-                      <option value="Vacation">Vacation</option>
-                    </select>
-                  </td>
+                      <td className="p-4">{employee.id}</td>
+                      <td className="p-4">{employee.firstName}</td>
+                      <td className="p-4">{employee.lastName}</td>
+                      <td className="p-4">{employee.phone}</td>
+                      <td className="p-4">{employee.email}</td>
 
-                  <td className="p-4 flex gap-2">
-                    <button
-                      onClick={() =>
-                        setEmployeeToEdit(employee)
-                      }
-                      className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/20"
-                    >
-                      ✏ Edit
-                    </button>
+                      <td className="p-4">
+                        {getStatusBadge(employee.status)}
+                      </td>
 
-                    <button
-                      onClick={() =>
-                        setEmployeeToDelete(employee)
-                      }
-                      className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400 hover:bg-red-500/20"
-                    >
-                      🗑 Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <td className="p-4">
+                        <select
+                          value={employee.status}
+                          onChange={(e) =>
+                            handleStatusChange(
+                              employee.id,
+                              e.target.value
+                            )
+                          }
+                          className="rounded-xl border border-white/10 bg-slate-800 px-3 py-2"
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Sick">Sick</option>
+                          <option value="Vacation">Vacation</option>
+                        </select>
+                      </td>
+
+                      <td className="p-4 flex gap-2">
+                        <button
+                          onClick={() =>
+                            setEmployeeToEdit(employee)
+                          }
+                          className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/20"
+                        >
+                          ✏ Edit
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setEmployeeToDelete(employee)
+                          }
+                          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400 hover:bg-red-500/20"
+                        >
+                          🗑 Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       <InviteModal

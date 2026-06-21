@@ -18,7 +18,7 @@ export default function TimeTrackingPage() {
   const totalHours = hours.reduce((sum, row) => sum + row.hours, 0);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <PageHeader
         title="Time Tracking"
         subtitle="Worked hours per project, based on completed shifts."
@@ -31,6 +31,7 @@ export default function TimeTrackingPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10 text-left">
@@ -53,6 +54,7 @@ export default function TimeTrackingPage() {
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
