@@ -5,7 +5,6 @@ import Button from "../components/ui/Button";
 import Toast from "../components/ui/Toast";
 import DatePicker from "../components/ui/DatePicker";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import OwnerNoteConvertPanel from "../components/OwnerNoteConvertPanel";
 import { useToast } from "../hooks/useToast";
 import {
   getOwnerNotes,
@@ -21,7 +20,6 @@ import { getEmployees } from "../services/employee.service";
 import {
   OWNER_NOTE_STATUSES,
   PRIORITIES,
-  type ConversionTarget,
   type DetectedEntities,
   type OwnerNote,
   type OwnerNoteDashboard,
@@ -56,7 +54,6 @@ export default function OwnerCommandCenterPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboard, setDashboard] = useState<OwnerNoteDashboard | null>(null);
-  const [convertingNoteId, setConvertingNoteId] = useState<number | null>(null);
 
   // Edit note
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -220,7 +217,6 @@ export default function OwnerCommandCenterPage() {
     setEditProjectId(note.projectId ? String(note.projectId) : "");
     setEditCustomerId(note.customerId ? String(note.customerId) : "");
     setEditEmployeeId(note.employeeId ? String(note.employeeId) : "");
-    setConvertingNoteId(null);
   }
 
   async function handleEditSave(note: OwnerNote) {
@@ -254,20 +250,6 @@ export default function OwnerCommandCenterPage() {
     } catch {
       triggerToast("Failed to delete note");
     }
-  }
-
-  const CONVERSION_TOAST_LABEL: Record<ConversionTarget, string> = {
-    Task: "Task created.",
-    Reminder: "Reminder created.",
-    CommunicationLog: "Communication log created.",
-    ProjectInternalNote: "Internal note created.",
-  };
-
-  function handleConverted(created: { type: ConversionTarget; id: number }[]) {
-    const message = created.map((c) => CONVERSION_TOAST_LABEL[c.type]).join(" ");
-    triggerToast(message || "Conversion created");
-    loadNotes();
-    loadDashboard();
   }
 
   return (
@@ -670,13 +652,6 @@ export default function OwnerCommandCenterPage() {
                 </select>
 
                 <button
-                  onClick={() => setConvertingNoteId(convertingNoteId === note.id ? null : note.id)}
-                  className="rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-600"
-                >
-                  {convertingNoteId === note.id ? "Hide convert panel" : "Convert..."}
-                </button>
-
-                <button
                   onClick={() => startEdit(note)}
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
                 >
@@ -690,14 +665,6 @@ export default function OwnerCommandCenterPage() {
                   Delete
                 </button>
               </div>
-
-              {convertingNoteId === note.id && (
-                <OwnerNoteConvertPanel
-                  note={note}
-                  onClose={() => setConvertingNoteId(null)}
-                  onConverted={handleConverted}
-                />
-              )}
             </div>
           ))
         )}

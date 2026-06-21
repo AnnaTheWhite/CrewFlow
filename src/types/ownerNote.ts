@@ -14,9 +14,17 @@ export const COMMUNICATION_TYPES = ["PhoneCall", "Email", "Meeting", "Other"] as
 
 export type CommunicationType = (typeof COMMUNICATION_TYPES)[number];
 
+// Kept broad so historical OwnerNoteConversion rows created before Phase
+// 3.2 (Task/Reminder/ProjectInternalNote) still render a label correctly.
 export const CONVERSION_TARGETS = ["Task", "Reminder", "CommunicationLog", "ProjectInternalNote"] as const;
 
 export type ConversionTarget = (typeof CONVERSION_TARGETS)[number];
+
+// Phase 3.2 — the only target the Convert panel can actually create today.
+// Task/Reminder/ProjectInternalNote were removed from the UI (and the
+// backend) because converting a note into one left no way to ever find it
+// again. Re-add a target here only once it has a real retrieval surface.
+export const ACTIONABLE_CONVERSION_TARGETS = ["CommunicationLog"] as const;
 
 export type OwnerNoteConversion = {
   id: number;
@@ -71,33 +79,18 @@ export type ProjectContext = {
   recentActivity: { id: number; type: string; metadata: string | null; createdAt: string }[];
 };
 
-export type ConversionAction =
-  | {
-      type: "Task";
-      title: string;
-      description?: string;
-      projectId?: number | null;
-      employeeId?: number | null;
-      priority?: Priority;
-      dueDate?: string | null;
-    }
-  | {
-      type: "Reminder";
-      title: string;
-      dueDate?: string | null;
-      projectId?: number | null;
-      customerId?: number | null;
-      priority?: Priority;
-    }
-  | {
-      type: "CommunicationLog";
-      communicationType?: CommunicationType;
-      content: string;
-      customerId?: number | null;
-      projectId?: number | null;
-    }
-  | {
-      type: "ProjectInternalNote";
-      content: string;
-      projectId: number;
-    };
+export type ConversionAction = {
+  type: "CommunicationLog";
+  communicationType?: CommunicationType;
+  content: string;
+  customerId?: number | null;
+  projectId?: number | null;
+};
+
+export type CommunicationLogEntry = {
+  id: number;
+  type: CommunicationType;
+  content: string;
+  occurredAt: string;
+  projectId: number | null;
+};

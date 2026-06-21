@@ -18,6 +18,30 @@ router.get("/", async (req, res) => {
   return res.json(customers);
 });
 
+// Phase 3.2 — minimal read-only communication history. Surfaces
+// CommunicationLog rows created via the Owner Command Center convert
+// workflow; this is the only retrieval UI for that model, by design (see
+// product review: a conversion target with no retrieval path is dead
+// weight, so this is the minimum needed to keep it a real feature).
+router.get("/:id/communications", async (req, res) => {
+  const { id } = req.params;
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: Number(id), ...companyScope(req) },
+  });
+
+  if (!customer) {
+    return res.status(404).json({ message: "Customer not found" });
+  }
+
+  const logs = await prisma.communicationLog.findMany({
+    where: { customerId: Number(id), ...companyScope(req) },
+    orderBy: { occurredAt: "desc" },
+  });
+
+  return res.json(logs);
+});
+
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 

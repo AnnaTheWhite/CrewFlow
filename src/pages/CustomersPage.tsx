@@ -5,6 +5,8 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  getCustomerCommunications,
+  type CustomerCommunicationLog,
 } from "../services/customers.service";
 
 import Modal from "../components/ui/Modal";
@@ -14,6 +16,13 @@ import { useToast } from "../hooks/useToast";
 
 import type { Customer } from "../types/customer";
 
+const COMMUNICATION_TYPE_LABEL: Record<CustomerCommunicationLog["type"], string> = {
+  PhoneCall: "📞 Phone Call",
+  Email: "✉️ Email",
+  Meeting: "🤝 Meeting",
+  Other: "📝 Other",
+};
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +31,10 @@ export default function CustomersPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+  const [communications, setCommunications] = useState<CustomerCommunicationLog[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -104,6 +117,20 @@ export default function CustomersPage() {
       triggerToast("Failed to delete customer");
     }
   };
+
+  async function openHistory(customer: Customer) {
+    setHistoryCustomer(customer);
+    setIsHistoryLoading(true);
+    try {
+      const data = await getCustomerCommunications(customer.id);
+      setCommunications(data);
+    } catch (error) {
+      console.error(error);
+      triggerToast("Failed to load communication history");
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
 
   const filteredCustomers = customers.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -194,6 +221,13 @@ export default function CustomersPage() {
 
               <div className="mt-4 flex gap-2">
                 <button
+                  onClick={() => openHistory(customer)}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10"
+                >
+                  🕘 History
+                </button>
+
+                <button
                   onClick={() => setCustomerToEdit(customer)}
                   className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/20"
                 >
@@ -243,6 +277,37 @@ export default function CustomersPage() {
             Save Changes
           </button>
         </form>
+      </Modal>
+
+      {/* Communication History — read-only. These rows come from the Owner
+          Command Center "Convert to Communication Log" workflow; this is
+          the only place they can be reviewed afterward. */}
+      <Modal
+        open={historyCustomer !== null}
+        title={`Communication History — ${historyCustomer?.name ?? ""}`}
+        onClose={() => setHistoryCustomer(null)}
+      >
+        {isHistoryLoading ? (
+          <p className="text-slate-400">Loading...</p>
+        ) : communications.length === 0 ? (
+          <p className="text-slate-400">No communication logged for this customer yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {communications.map((log) => (
+              <div key={log.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-white">
+                    {COMMUNICATION_TYPE_LABEL[log.type]}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(log.occurredAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{log.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
 
       <ConfirmModal

@@ -11,15 +11,14 @@ import { detectIntents } from "../utils/intentDetection";
 
 const router = Router();
 
-// Phase 3 conversion targets a single OwnerNote can fan out into. Kept as a
-// const map (not a Prisma enum) so adding a target later is a code change,
-// not a migration — same rationale as OwnerNote.status.
-const CONVERSION_TARGETS = [
-  "Task",
-  "Reminder",
-  "CommunicationLog",
-  "ProjectInternalNote",
-] as const;
+// Phase 3.2 product review: Task, Reminder, and ProjectInternalNote were
+// write-only — converting a note created a row nobody could ever see again
+// (no list view, no project/customer tab). Disabling them here, not just
+// in the UI, so the dead-end action can't be reached via direct API calls
+// either. The DB models stay untouched as future foundations; re-enable a
+// target here once it has a real retrieval surface (see customers.routes.ts
+// GET /:id/communications for the bar a target needs to clear).
+const CONVERSION_TARGETS = ["CommunicationLog"] as const;
 type ConversionTarget = (typeof CONVERSION_TARGETS)[number];
 
 // Owner Command Center — BUSINESS_OWNER and DEVELOPER only, never EMPLOYEE.
@@ -353,11 +352,16 @@ router.get("/:id/conversions", async (req, res) => {
   return res.json(conversions);
 });
 
-type ConversionAction =
-  | { type: "Task"; title: string; description?: string; projectId?: number | null; employeeId?: number | null; priority?: string; dueDate?: string | null }
-  | { type: "Reminder"; title: string; dueDate?: string | null; projectId?: number | null; customerId?: number | null; priority?: string }
-  | { type: "CommunicationLog"; communicationType?: string; content: string; customerId?: number | null; projectId?: number | null }
-  | { type: "ProjectInternalNote"; content: string; projectId: number };
+// Phase 3.2 — only CommunicationLog is an actionable conversion target
+// today (see CONVERSION_TARGETS above). Task/Reminder/ProjectInternalNote
+// stay defined as DB models for later, but aren't reachable from here.
+type ConversionAction = {
+  type: "CommunicationLog";
+  communicationType?: string;
+  content: string;
+  customerId?: number | null;
+  projectId?: number | null;
+};
 
 // Feature 4/5/6/7/8/9 — Multi-Action Conversion + Owner Approval Workflow.
 // The owner picks one or more target actions, edits the prefilled fields,
@@ -401,35 +405,6 @@ router.post("/:id/convert", async (req, res) => {
     const results: { type: ConversionTarget; id: number }[] = [];
 
     for (const action of actions) {
-      if (action.type === "Task") {
-        const task = await tx.task.create({
-          data: {
-            title: action.title,
-            description: action.description ?? null,
-            companyId,
-            projectId: action.projectId ? Number(action.projectId) : null,
-            employeeId: action.employeeId ? Number(action.employeeId) : null,
-            priority: normalizePriority(action.priority ?? note.priority),
-            dueDate: action.dueDate ? new Date(action.dueDate) : null,
-          },
-        });
-        results.push({ type: "Task", id: task.id });
-      }
-
-      if (action.type === "Reminder") {
-        const reminder = await tx.reminder.create({
-          data: {
-            title: action.title,
-            companyId,
-            projectId: action.projectId ? Number(action.projectId) : null,
-            customerId: action.customerId ? Number(action.customerId) : null,
-            priority: normalizePriority(action.priority ?? note.priority),
-            dueDate: action.dueDate ? new Date(action.dueDate) : null,
-          },
-        });
-        results.push({ type: "Reminder", id: reminder.id });
-      }
-
       if (action.type === "CommunicationLog") {
         const log = await tx.communicationLog.create({
           data: {
@@ -441,18 +416,6 @@ router.post("/:id/convert", async (req, res) => {
           },
         });
         results.push({ type: "CommunicationLog", id: log.id });
-      }
-
-      if (action.type === "ProjectInternalNote") {
-        const internalNote = await tx.projectInternalNote.create({
-          data: {
-            content: action.content,
-            companyId,
-            projectId: Number(action.projectId),
-            userId: req.user!.userId,
-          },
-        });
-        results.push({ type: "ProjectInternalNote", id: internalNote.id });
       }
     }
 
