@@ -40,6 +40,10 @@ const STATUS_STYLES: Record<OwnerNoteStatus, string> = {
   Archived: "bg-white/10 text-slate-400",
 };
 
+function formatStatus(status: OwnerNoteStatus): string {
+  return status === "ReadyToConvert" ? "Ready To Convert" : status;
+}
+
 const PRIORITY_STYLES: Record<Priority, string> = {
   Low: "bg-white/10 text-slate-400",
   Medium: "bg-blue-500/20 text-blue-400",
@@ -434,7 +438,7 @@ export default function OwnerCommandCenterPage() {
                   : "bg-white/5 text-slate-400 hover:bg-white/10"
               }`}
             >
-              {option}
+              {option === "All" ? "All" : formatStatus(option)}
             </button>
           ))}
         </div>
@@ -591,7 +595,7 @@ export default function OwnerCommandCenterPage() {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
                     >
-                      {note.status === "ReadyToConvert" ? "Ready To Convert" : note.status}
+                      {formatStatus(note.status)}
                     </span>
                   </div>
                 </div>
@@ -628,7 +632,7 @@ export default function OwnerCommandCenterPage() {
                     onClick={() => handleStatusChange(note, status)}
                     className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
                   >
-                    Move to {status === "ReadyToConvert" ? "Ready To Convert" : status}
+                    Move to {formatStatus(status)}
                   </button>
                 ))}
 
