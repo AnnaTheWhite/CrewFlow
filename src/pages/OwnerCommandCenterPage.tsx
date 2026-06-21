@@ -36,13 +36,8 @@ const inputClass =
 const STATUS_STYLES: Record<OwnerNoteStatus, string> = {
   Inbox: "bg-orange-500/20 text-orange-400",
   Reviewed: "bg-blue-500/20 text-blue-400",
-  ReadyToConvert: "bg-emerald-500/20 text-emerald-400",
   Archived: "bg-white/10 text-slate-400",
 };
-
-function formatStatus(status: OwnerNoteStatus): string {
-  return status === "ReadyToConvert" ? "Ready To Convert" : status;
-}
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   Low: "bg-white/10 text-slate-400",
@@ -264,12 +259,11 @@ export default function OwnerCommandCenterPage() {
       />
 
       {dashboard && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
             { label: "Total Notes", value: dashboard.total },
             { label: "Inbox", value: dashboard.inbox },
             { label: "Reviewed", value: dashboard.reviewed },
-            { label: "Ready To Convert", value: dashboard.readyToConvert },
             { label: "Archived", value: dashboard.archived },
             { label: "Urgent", value: dashboard.urgent },
             { label: "Pinned", value: dashboard.pinned },
@@ -438,7 +432,7 @@ export default function OwnerCommandCenterPage() {
                   : "bg-white/5 text-slate-400 hover:bg-white/10"
               }`}
             >
-              {option === "All" ? "All" : formatStatus(option)}
+              {option}
             </button>
           ))}
         </div>
@@ -595,7 +589,7 @@ export default function OwnerCommandCenterPage() {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
                     >
-                      {formatStatus(note.status)}
+                      {note.status}
                     </span>
                   </div>
                 </div>
@@ -632,7 +626,7 @@ export default function OwnerCommandCenterPage() {
                     onClick={() => handleStatusChange(note, status)}
                     className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
                   >
-                    Move to {formatStatus(status)}
+                    Move to {status}
                   </button>
                 ))}
 

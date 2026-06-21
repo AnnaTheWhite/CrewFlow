@@ -99,17 +99,16 @@ router.get("/dashboard", async (req, res) => {
     return res.status(400).json({ error: "companyId is required" });
   }
 
-  const [total, inbox, reviewed, readyToConvert, archived, urgent, pinned] = await Promise.all([
+  const [total, inbox, reviewed, archived, urgent, pinned] = await Promise.all([
     prisma.ownerNote.count({ where: { companyId } }),
     prisma.ownerNote.count({ where: { companyId, status: "Inbox" } }),
     prisma.ownerNote.count({ where: { companyId, status: "Reviewed" } }),
-    prisma.ownerNote.count({ where: { companyId, status: "ReadyToConvert" } }),
     prisma.ownerNote.count({ where: { companyId, status: "Archived" } }),
     prisma.ownerNote.count({ where: { companyId, priority: "Urgent" } }),
     prisma.ownerNote.count({ where: { companyId, pinned: true } }),
   ]);
 
-  return res.json({ total, inbox, reviewed, readyToConvert, archived, urgent, pinned });
+  return res.json({ total, inbox, reviewed, archived, urgent, pinned });
 });
 
 // Feature 15 — Context Panel. Gives the owner project context (customer,
