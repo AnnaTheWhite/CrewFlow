@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { Router } from "express";
 import prisma from "../database/prisma";
 import { requireRole } from "../middleware/role.middleware";
@@ -5,6 +7,7 @@ import { ROLES } from "../constants/roles";
 import { companyScope } from "../utils/scope";
 import { validateGeofenceFields } from "../utils/validateGeofence";
 import { isProjectLimitReached } from "../utils/planLimits";
+import { UPLOADS_DIR } from "../middleware/upload.middleware";
 
 const router = Router();
 
@@ -188,15 +191,43 @@ router.delete(
   "/:id",
   requireRole(ROLES.BUSINESS_OWNER, ROLES.DEVELOPER),
   async (req, res) => {
-    const { id } = req.params;
+    const projectId = Number(req.params.id);
 
-    await prisma.projectAssignment.deleteMany({
-      where: { projectId: Number(id) },
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, ...companyScope(req) },
     });
 
-    await prisma.project.delete({
-      where: { id: Number(id), ...companyScope(req) },
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    // Notes/attachments/activity only make sense scoped to this project —
+    // remove them with it. Shifts are real worked-time history (payroll-
+    // relevant), so they're detached (projectId set to null) instead of
+    // deleted, same care as employee deletion takes with shift history.
+    const attachments = await prisma.projectAttachment.findMany({
+      where: { projectId },
     });
+
+    await prisma.projectActivity.deleteMany({ where: { projectId } });
+    await prisma.projectNote.deleteMany({ where: { projectId } });
+    await prisma.projectAttachment.deleteMany({ where: { projectId } });
+    await prisma.shift.updateMany({
+      where: { projectId },
+      data: { projectId: null },
+    });
+    await prisma.projectAssignment.deleteMany({ where: { projectId } });
+
+    await prisma.project.delete({ where: { id: projectId } });
+
+    for (const attachment of attachments) {
+      const filePath = path.join(UPLOADS_DIR, path.basename(attachment.fileUrl));
+      fs.unlink(filePath, (error) => {
+        if (error && error.code !== "ENOENT") {
+          console.error("[projects] failed to delete attachment file from disk", error);
+        }
+      });
+    }
 
     return res.status(204).send();
   }
