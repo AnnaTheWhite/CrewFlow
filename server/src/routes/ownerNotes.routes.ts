@@ -100,7 +100,8 @@ router.get("/dashboard", async (req, res) => {
     return res.status(400).json({ error: "companyId is required" });
   }
 
-  const [inbox, reviewed, readyToConvert, archived, urgent, pinned] = await Promise.all([
+  const [total, inbox, reviewed, readyToConvert, archived, urgent, pinned] = await Promise.all([
+    prisma.ownerNote.count({ where: { companyId } }),
     prisma.ownerNote.count({ where: { companyId, status: "Inbox" } }),
     prisma.ownerNote.count({ where: { companyId, status: "Reviewed" } }),
     prisma.ownerNote.count({ where: { companyId, status: "ReadyToConvert" } }),
@@ -109,7 +110,7 @@ router.get("/dashboard", async (req, res) => {
     prisma.ownerNote.count({ where: { companyId, pinned: true } }),
   ]);
 
-  return res.json({ inbox, reviewed, readyToConvert, archived, urgent, pinned });
+  return res.json({ total, inbox, reviewed, readyToConvert, archived, urgent, pinned });
 });
 
 // Feature 15 — Context Panel. Gives the owner project context (customer,
@@ -299,6 +300,33 @@ router.put("/:id", async (req, res) => {
   });
 
   return res.json(note);
+});
+
+// Feature 2 (Phase 3.1) — permanent delete. Tenant-safe (only deletes a
+// note that belongs to the resolved company) and RBAC-safe (the router-wide
+// requireRole above already blocks EMPLOYEE from this entire router).
+// Conversion history rows are deleted too — they only make sense in
+// relation to the note that produced them, and the converted
+// Task/Reminder/CommunicationLog/ProjectInternalNote records themselves are
+// left untouched since they're independent records by that point.
+router.delete("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: "companyId is required" });
+  }
+
+  const existing = await prisma.ownerNote.findFirst({ where: { id, companyId } });
+  if (!existing) {
+    return res.status(404).json({ error: "Note not found" });
+  }
+
+  await prisma.$transaction([
+    prisma.ownerNoteConversion.deleteMany({ where: { ownerNoteId: id, companyId } }),
+    prisma.ownerNote.delete({ where: { id } }),
+  ]);
+
+  return res.status(204).send();
 });
 
 // Feature 12/13 — conversion history + duplicate protection. Lists every

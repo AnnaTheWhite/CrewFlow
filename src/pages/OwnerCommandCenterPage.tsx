@@ -4,12 +4,14 @@ import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
 import Toast from "../components/ui/Toast";
 import DatePicker from "../components/ui/DatePicker";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import OwnerNoteConvertPanel from "../components/OwnerNoteConvertPanel";
 import { useToast } from "../hooks/useToast";
 import {
   getOwnerNotes,
   createOwnerNote,
   updateOwnerNote,
+  deleteOwnerNote,
   detectOwnerNoteEntities,
   getOwnerNotesDashboard,
 } from "../services/ownerNotes.service";
@@ -19,6 +21,7 @@ import { getEmployees } from "../services/employee.service";
 import {
   OWNER_NOTE_STATUSES,
   PRIORITIES,
+  type ConversionTarget,
   type DetectedEntities,
   type OwnerNote,
   type OwnerNoteDashboard,
@@ -54,6 +57,18 @@ export default function OwnerCommandCenterPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [dashboard, setDashboard] = useState<OwnerNoteDashboard | null>(null);
   const [convertingNoteId, setConvertingNoteId] = useState<number | null>(null);
+
+  // Edit note
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editProjectId, setEditProjectId] = useState("");
+  const [editCustomerId, setEditCustomerId] = useState("");
+  const [editEmployeeId, setEditEmployeeId] = useState("");
+  const [isEditSaving, setIsEditSaving] = useState(false);
+
+  // Delete note
+  const [noteToDelete, setNoteToDelete] = useState<OwnerNote | null>(null);
 
   // Quick capture form
   const [title, setTitle] = useState("");
@@ -198,6 +213,63 @@ export default function OwnerCommandCenterPage() {
     }
   }
 
+  function startEdit(note: OwnerNote) {
+    setEditingNoteId(note.id);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+    setEditProjectId(note.projectId ? String(note.projectId) : "");
+    setEditCustomerId(note.customerId ? String(note.customerId) : "");
+    setEditEmployeeId(note.employeeId ? String(note.employeeId) : "");
+    setConvertingNoteId(null);
+  }
+
+  async function handleEditSave(note: OwnerNote) {
+    setIsEditSaving(true);
+    try {
+      const updated = await updateOwnerNote(note.id, {
+        title: editTitle,
+        content: editContent,
+        projectId: editProjectId ? Number(editProjectId) : null,
+        customerId: editCustomerId ? Number(editCustomerId) : null,
+        employeeId: editEmployeeId ? Number(editEmployeeId) : null,
+      });
+      setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
+      setEditingNoteId(null);
+      triggerToast("Note updated");
+    } catch (error) {
+      triggerToast(error instanceof Error ? error.message : "Failed to update note");
+    } finally {
+      setIsEditSaving(false);
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    if (!noteToDelete) return;
+    try {
+      await deleteOwnerNote(noteToDelete.id);
+      setNotes((prev) => prev.filter((n) => n.id !== noteToDelete.id));
+      setNoteToDelete(null);
+      triggerToast("Note deleted");
+      loadDashboard();
+    } catch {
+      triggerToast("Failed to delete note");
+    }
+  }
+
+  const CONVERSION_TOAST_LABEL: Record<ConversionTarget, string> = {
+    Task: "Task created.",
+    Reminder: "Reminder created.",
+    CommunicationLog: "Communication log created.",
+    ProjectInternalNote: "Internal note created.",
+  };
+
+  function handleConverted(created: { type: ConversionTarget; id: number }[]) {
+    const message = created.map((c) => CONVERSION_TOAST_LABEL[c.type]).join(" ");
+    triggerToast(message || "Conversion created");
+    loadNotes();
+    loadDashboard();
+  }
+
   return (
     <div className="p-8">
       <PageHeader
@@ -206,8 +278,9 @@ export default function OwnerCommandCenterPage() {
       />
 
       {dashboard && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
           {[
+            { label: "Total Notes", value: dashboard.total },
             { label: "Inbox", value: dashboard.inbox },
             { label: "Reviewed", value: dashboard.reviewed },
             { label: "Ready To Convert", value: dashboard.readyToConvert },
@@ -467,28 +540,80 @@ export default function OwnerCommandCenterPage() {
                 note.pinned ? "border-orange-500/40 bg-orange-500/5" : "border-white/10 bg-white/5"
               }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h4 className="flex items-center gap-2 text-lg font-semibold text-white">
-                    {note.pinned && <span title="Pinned">📌</span>}
-                    {note.title}
-                  </h4>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
-                    {note.content}
-                  </p>
+              {editingNoteId === note.id ? (
+                <div className="space-y-3">
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className={inputClass}
+                    placeholder="Title"
+                  />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className={inputClass}
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <select value={editProjectId} onChange={(e) => setEditProjectId(e.target.value)} className={inputClass}>
+                      <option value="">No project</option>
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={editCustomerId} onChange={(e) => setEditCustomerId(e.target.value)} className={inputClass}>
+                      <option value="">No customer</option>
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} className={inputClass}>
+                      <option value="">No employee</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.firstName} {employee.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleEditSave(note)}>{isEditSaving ? "Saving..." : "Save changes"}</Button>
+                    <button
+                      onClick={() => setEditingNoteId(null)}
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h4 className="flex items-center gap-2 text-lg font-semibold text-white">
+                      {note.pinned && <span title="Pinned">📌</span>}
+                      {note.title}
+                    </h4>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
+                      {note.content}
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${PRIORITY_STYLES[note.priority]}`}>
-                    {note.priority}
-                  </span>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
-                  >
-                    {note.status === "ReadyToConvert" ? "Ready To Convert" : note.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${PRIORITY_STYLES[note.priority]}`}>
+                      {note.priority}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
+                    >
+                      {note.status === "ReadyToConvert" ? "Ready To Convert" : note.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 {note.project && (
@@ -550,23 +675,43 @@ export default function OwnerCommandCenterPage() {
                 >
                   {convertingNoteId === note.id ? "Hide convert panel" : "Convert..."}
                 </button>
+
+                <button
+                  onClick={() => startEdit(note)}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => setNoteToDelete(note)}
+                  className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20"
+                >
+                  Delete
+                </button>
               </div>
 
               {convertingNoteId === note.id && (
                 <OwnerNoteConvertPanel
                   note={note}
                   onClose={() => setConvertingNoteId(null)}
-                  onConverted={() => {
-                    triggerToast("Conversion created");
-                    loadNotes();
-                    loadDashboard();
-                  }}
+                  onConverted={handleConverted}
                 />
               )}
             </div>
           ))
         )}
       </div>
+
+      <ConfirmModal
+        open={noteToDelete !== null}
+        title="Delete Note"
+        message={`Are you sure you want to permanently delete "${noteToDelete?.title ?? ""}"? This cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setNoteToDelete(null)}
+      />
 
       <Toast show={show} message={message} />
     </div>

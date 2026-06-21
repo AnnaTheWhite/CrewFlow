@@ -34,7 +34,7 @@ export default function OwnerNoteConvertPanel({
   onClose,
 }: {
   note: OwnerNote;
-  onConverted: () => void;
+  onConverted: (created: { type: ConversionTarget; id: number }[]) => void;
   onClose: () => void;
 }) {
   const [detected, setDetected] = useState<DetectedEntities | null>(null);
@@ -123,8 +123,8 @@ export default function OwnerNoteConvertPanel({
         });
       }
 
-      await convertOwnerNote(note.id, actions);
-      onConverted();
+      const result = await convertOwnerNote(note.id, actions);
+      onConverted(result.conversions as { type: ConversionTarget; id: number }[]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to convert note");
@@ -156,23 +156,49 @@ export default function OwnerNoteConvertPanel({
       )}
 
       {detected && (
-        <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
-          <div>
-            <span className="text-slate-500">Detected Customer: </span>
-            {note.customer?.name ?? detected.customers[0]?.name ?? "—"}
-          </div>
-          <div>
-            <span className="text-slate-500">Detected Project: </span>
-            {note.project?.name ?? detected.projects[0]?.name ?? "—"}
-          </div>
-          <div>
-            <span className="text-slate-500">Detected Employee: </span>
-            {note.employee ? `${note.employee.firstName} ${note.employee.lastName}` : detected.employees[0]?.firstName ?? "—"}
-          </div>
-          <div>
-            <span className="text-slate-500">Detected Intents: </span>
-            {detected.intents.length > 0 ? detected.intents.join(", ") : "—"}
-          </div>
+        <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+          {(() => {
+            const customerName = note.customer?.name ?? detected.customers[0]?.name;
+            const projectName = note.project?.name ?? detected.projects[0]?.name;
+            const employeeName = note.employee
+              ? `${note.employee.firstName} ${note.employee.lastName}`
+              : detected.employees[0]
+                ? `${detected.employees[0].firstName} ${detected.employees[0].lastName}`
+                : undefined;
+            const hasIntents = detected.intents.length > 0;
+
+            return (
+              <>
+                <div>
+                  <span className="text-slate-500">Detected Customer: </span>
+                  <span className={customerName ? "text-slate-300" : "italic text-slate-500"}>
+                    {customerName ?? "Not identified"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Detected Project: </span>
+                  <span className={projectName ? "text-slate-300" : "italic text-slate-500"}>
+                    {projectName ?? "Not identified"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Detected Employee: </span>
+                  <span className={employeeName ? "text-slate-300" : "italic text-slate-500"}>
+                    {employeeName ?? "Not identified"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Detected Intents: </span>
+                  <span className={hasIntents ? "text-slate-300" : "italic text-slate-500"}>
+                    {hasIntents ? detected.intents.join(", ") : "No strong match"}
+                  </span>
+                </div>
+                {!customerName && !projectName && !employeeName && !hasIntents && (
+                  <p className="col-span-full text-orange-400">Detection uncertain — review and fill in manually below.</p>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 

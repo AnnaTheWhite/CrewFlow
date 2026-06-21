@@ -135,6 +135,17 @@ export async function updateOwnerNote(
   return response.json();
 }
 
+export async function deleteOwnerNote(id: number): Promise<void> {
+  const response = await fetch(`${API_URL}/owner-notes/${id}`, {
+    method: "DELETE",
+    headers: { ...authHeaders() },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete note");
+  }
+}
+
 export async function getOwnerNoteConversions(id: number): Promise<OwnerNoteConversion[]> {
   const response = await fetch(`${API_URL}/owner-notes/${id}/conversions`, {
     headers: { ...authHeaders() },

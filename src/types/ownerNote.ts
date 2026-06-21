@@ -53,6 +53,7 @@ export type DetectedEntities = {
 };
 
 export type OwnerNoteDashboard = {
+  total: number;
   inbox: number;
   reviewed: number;
   readyToConvert: number;

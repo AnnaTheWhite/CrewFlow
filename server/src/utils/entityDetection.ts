@@ -29,15 +29,47 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function isMentioned(text: string, name: string): boolean {
-  if (name.trim().length < MIN_NAME_LENGTH) return false;
+// Phase 3.1 — normalizes away the differences a real owner's typing
+// introduces but that shouldn't break a match: case, surrounding
+// whitespace, and punctuation (commas, periods, apostrophes). Diacritics
+// are deliberately preserved here ("Kovács" stays accented) — stripping
+// them is handled separately by `isMentioned`'s case-insensitive regex,
+// not by this normalizer.
+function normalize(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[.,!?;:'"()]/g, "");
+}
 
+function wordBoundaryTest(text: string, fragment: string): boolean {
   const pattern = new RegExp(
-    `(?<![\\p{L}\\p{N}])${escapeRegex(name.trim())}(?![\\p{L}\\p{N}])`,
+    `(?<![\\p{L}\\p{N}])${escapeRegex(fragment)}(?![\\p{L}\\p{N}])`,
     "iu"
   );
-
   return pattern.test(text);
+}
+
+// Phase 3.1 — case-insensitive (handled by the "i" flag), trims/strips
+// punctuation before comparing, and falls back to partial (per-token)
+// matching so "kovács" alone still matches a customer named "Kovács
+// János" — not just the full name.
+function isMentioned(text: string, name: string): boolean {
+  const trimmedName = name.trim();
+  if (trimmedName.length < MIN_NAME_LENGTH) return false;
+
+  const normalizedText = normalize(text);
+
+  if (wordBoundaryTest(normalizedText, normalize(trimmedName))) {
+    return true;
+  }
+
+  // Partial match: any individual token of the name (long enough to be
+  // meaningful) found as a whole word in the text.
+  return trimmedName
+    .split(/\s+/)
+    .filter((token) => token.length >= MIN_NAME_LENGTH)
+    .some((token) => wordBoundaryTest(normalizedText, normalize(token)));
 }
 
 export function detectEntities(
