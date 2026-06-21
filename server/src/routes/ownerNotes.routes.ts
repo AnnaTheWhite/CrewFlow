@@ -4,9 +4,23 @@ import { requireRole } from "../middleware/role.middleware";
 import { ROLES } from "../constants/roles";
 import { companyScope } from "../utils/scope";
 import { normalizeOwnerNoteStatus, OWNER_NOTE_STATUSES } from "../constants/ownerNoteStatuses";
+import { normalizePriority, PRIORITIES } from "../constants/priorities";
+import { normalizeCommunicationType } from "../constants/communicationTypes";
 import { detectEntities } from "../utils/entityDetection";
+import { detectIntents } from "../utils/intentDetection";
 
 const router = Router();
+
+// Phase 3 conversion targets a single OwnerNote can fan out into. Kept as a
+// const map (not a Prisma enum) so adding a target later is a code change,
+// not a migration — same rationale as OwnerNote.status.
+const CONVERSION_TARGETS = [
+  "Task",
+  "Reminder",
+  "CommunicationLog",
+  "ProjectInternalNote",
+] as const;
+type ConversionTarget = (typeof CONVERSION_TARGETS)[number];
 
 // Owner Command Center — BUSINESS_OWNER and DEVELOPER only, never EMPLOYEE.
 router.use(requireRole(ROLES.BUSINESS_OWNER, ROLES.DEVELOPER));
@@ -15,6 +29,7 @@ const NOTE_INCLUDE = {
   project: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
   employee: { select: { id: true, firstName: true, lastName: true } },
+  conversions: { select: { id: true, targetType: true, targetId: true, createdAt: true } },
 } as const;
 
 // BUSINESS_OWNER is always scoped to their own company (companyScope
@@ -38,7 +53,7 @@ router.get("/", async (req, res) => {
     return res.status(400).json({ error: "companyId is required" });
   }
 
-  const { status, projectId, customerId, date } = req.query;
+  const { status, projectId, customerId, date, priority, pinned } = req.query;
 
   const where: Record<string, unknown> = { companyId };
 
@@ -54,19 +69,99 @@ router.get("/", async (req, res) => {
     where.customerId = Number(customerId);
   }
 
+  if (priority && PRIORITIES.includes(priority as never)) {
+    where.priority = priority;
+  }
+
+  if (pinned === "true") {
+    where.pinned = true;
+  }
+
   if (typeof date === "string" && date) {
     const start = new Date(`${date}T00:00:00.000Z`);
     const end = new Date(`${date}T23:59:59.999Z`);
     where.createdAt = { gte: start, lte: end };
   }
 
+  // Pinned notes always sort first, then newest-first within each group.
   const notes = await prisma.ownerNote.findMany({
     where,
     include: NOTE_INCLUDE,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
   });
 
   return res.json(notes);
+});
+
+// Feature 14 — Command Center Dashboard counts.
+router.get("/dashboard", async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: "companyId is required" });
+  }
+
+  const [inbox, reviewed, readyToConvert, archived, urgent, pinned] = await Promise.all([
+    prisma.ownerNote.count({ where: { companyId, status: "Inbox" } }),
+    prisma.ownerNote.count({ where: { companyId, status: "Reviewed" } }),
+    prisma.ownerNote.count({ where: { companyId, status: "ReadyToConvert" } }),
+    prisma.ownerNote.count({ where: { companyId, status: "Archived" } }),
+    prisma.ownerNote.count({ where: { companyId, priority: "Urgent" } }),
+    prisma.ownerNote.count({ where: { companyId, pinned: true } }),
+  ]);
+
+  return res.json({ inbox, reviewed, readyToConvert, archived, urgent, pinned });
+});
+
+// Feature 15 — Context Panel. Gives the owner project context (customer,
+// assigned employees, total logged hours, open tasks, recent activity)
+// while deciding what to do with a note linked to that project.
+router.get("/context/:projectId", async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: "companyId is required" });
+  }
+
+  const projectId = Number(req.params.projectId);
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, companyId },
+    include: {
+      customer: { select: { id: true, name: true } },
+      assignments: {
+        include: { employee: { select: { id: true, firstName: true, lastName: true } } },
+      },
+    },
+  });
+
+  if (!project) {
+    return res.status(404).json({ error: "Project not found" });
+  }
+
+  const [shifts, openTasks, recentActivity] = await Promise.all([
+    prisma.shift.findMany({ where: { projectId }, select: { start: true, end: true } }),
+    prisma.task.count({ where: { projectId, companyId, status: { not: "Done" } } }),
+    prisma.projectActivity.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, type: true, metadata: true, createdAt: true },
+    }),
+  ]);
+
+  const totalHours = shifts.reduce((sum, shift) => {
+    if (!shift.end) return sum;
+    const ms = shift.end.getTime() - shift.start.getTime();
+    return sum + ms / (1000 * 60 * 60);
+  }, 0);
+
+  return res.json({
+    project: { id: project.id, name: project.name, status: project.status },
+    customer: project.customer,
+    assignedEmployees: project.assignments.map((a) => a.employee),
+    totalHours: Math.round(totalHours * 100) / 100,
+    openTasks,
+    recentActivity,
+  });
 });
 
 // Suggestions only — detects mentions of existing customers/projects/
@@ -81,7 +176,7 @@ router.post("/detect", async (req, res) => {
   const { text } = req.body;
 
   if (typeof text !== "string" || !text.trim()) {
-    return res.json({ customers: [], projects: [], employees: [] });
+    return res.json({ customers: [], projects: [], employees: [], intents: [] });
   }
 
   const [customers, projects, employees] = await Promise.all([
@@ -93,7 +188,10 @@ router.post("/detect", async (req, res) => {
     }),
   ]);
 
-  return res.json(detectEntities(text, customers, projects, employees));
+  return res.json({
+    ...detectEntities(text, customers, projects, employees),
+    intents: detectIntents(text),
+  });
 });
 
 // Verifies a project/customer/employee id belongs to the same company
@@ -133,7 +231,7 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "companyId is required" });
   }
 
-  const { title, content, projectId, customerId, employeeId } = req.body;
+  const { title, content, projectId, customerId, employeeId, priority, pinned } = req.body;
 
   if (!title || typeof title !== "string" || !title.trim()) {
     return res.status(400).json({ error: "title is required" });
@@ -157,6 +255,8 @@ router.post("/", async (req, res) => {
       projectId: projectId ? Number(projectId) : null,
       customerId: customerId ? Number(customerId) : null,
       employeeId: employeeId ? Number(employeeId) : null,
+      priority: priority !== undefined ? normalizePriority(priority) : undefined,
+      pinned: typeof pinned === "boolean" ? pinned : undefined,
     },
     include: NOTE_INCLUDE,
   });
@@ -176,7 +276,7 @@ router.put("/:id", async (req, res) => {
     return res.status(404).json({ error: "Note not found" });
   }
 
-  const { title, content, status, projectId, customerId, employeeId } = req.body;
+  const { title, content, status, projectId, customerId, employeeId, priority, pinned } = req.body;
 
   const linkError = await assertSameCompanyOrThrow(companyId, { projectId, customerId, employeeId });
   if (linkError) {
@@ -192,11 +292,155 @@ router.put("/:id", async (req, res) => {
       projectId: projectId !== undefined ? (projectId ? Number(projectId) : null) : undefined,
       customerId: customerId !== undefined ? (customerId ? Number(customerId) : null) : undefined,
       employeeId: employeeId !== undefined ? (employeeId ? Number(employeeId) : null) : undefined,
+      priority: priority !== undefined ? normalizePriority(priority) : undefined,
+      pinned: typeof pinned === "boolean" ? pinned : undefined,
     },
     include: NOTE_INCLUDE,
   });
 
   return res.json(note);
+});
+
+// Feature 12/13 — conversion history + duplicate protection. Lists every
+// Task/Reminder/CommunicationLog/ProjectInternalNote this note has already
+// produced, so the UI can show "Converted" and the owner can avoid
+// accidental duplicate creation.
+router.get("/:id/conversions", async (req, res) => {
+  const id = Number(req.params.id);
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: "companyId is required" });
+  }
+
+  const note = await prisma.ownerNote.findFirst({ where: { id, companyId } });
+  if (!note) {
+    return res.status(404).json({ error: "Note not found" });
+  }
+
+  const conversions = await prisma.ownerNoteConversion.findMany({
+    where: { ownerNoteId: id, companyId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return res.json(conversions);
+});
+
+type ConversionAction =
+  | { type: "Task"; title: string; description?: string; projectId?: number | null; employeeId?: number | null; priority?: string; dueDate?: string | null }
+  | { type: "Reminder"; title: string; dueDate?: string | null; projectId?: number | null; customerId?: number | null; priority?: string }
+  | { type: "CommunicationLog"; communicationType?: string; content: string; customerId?: number | null; projectId?: number | null }
+  | { type: "ProjectInternalNote"; content: string; projectId: number };
+
+// Feature 4/5/6/7/8/9 — Multi-Action Conversion + Owner Approval Workflow.
+// The owner picks one or more target actions, edits the prefilled fields,
+// and confirms once — everything is created together in a single
+// transaction. Nothing here is automatic: this endpoint only runs when the
+// owner explicitly calls it after reviewing the Decision Preview.
+router.post("/:id/convert", async (req, res) => {
+  const id = Number(req.params.id);
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: "companyId is required" });
+  }
+
+  const note = await prisma.ownerNote.findFirst({ where: { id, companyId } });
+  if (!note) {
+    return res.status(404).json({ error: "Note not found" });
+  }
+
+  const actions: ConversionAction[] = Array.isArray(req.body?.actions) ? req.body.actions : [];
+
+  if (actions.length === 0) {
+    return res.status(400).json({ error: "At least one action is required" });
+  }
+
+  for (const action of actions) {
+    if (!CONVERSION_TARGETS.includes(action.type as ConversionTarget)) {
+      return res.status(400).json({ error: `Unknown action type: ${action.type}` });
+    }
+
+    const linkError = await assertSameCompanyOrThrow(companyId, {
+      projectId: (action as { projectId?: number }).projectId,
+      customerId: (action as { customerId?: number }).customerId,
+      employeeId: (action as { employeeId?: number }).employeeId,
+    });
+    if (linkError) {
+      return res.status(400).json({ error: linkError });
+    }
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const results: { type: ConversionTarget; id: number }[] = [];
+
+    for (const action of actions) {
+      if (action.type === "Task") {
+        const task = await tx.task.create({
+          data: {
+            title: action.title,
+            description: action.description ?? null,
+            companyId,
+            projectId: action.projectId ? Number(action.projectId) : null,
+            employeeId: action.employeeId ? Number(action.employeeId) : null,
+            priority: normalizePriority(action.priority ?? note.priority),
+            dueDate: action.dueDate ? new Date(action.dueDate) : null,
+          },
+        });
+        results.push({ type: "Task", id: task.id });
+      }
+
+      if (action.type === "Reminder") {
+        const reminder = await tx.reminder.create({
+          data: {
+            title: action.title,
+            companyId,
+            projectId: action.projectId ? Number(action.projectId) : null,
+            customerId: action.customerId ? Number(action.customerId) : null,
+            priority: normalizePriority(action.priority ?? note.priority),
+            dueDate: action.dueDate ? new Date(action.dueDate) : null,
+          },
+        });
+        results.push({ type: "Reminder", id: reminder.id });
+      }
+
+      if (action.type === "CommunicationLog") {
+        const log = await tx.communicationLog.create({
+          data: {
+            type: normalizeCommunicationType(action.communicationType),
+            content: action.content,
+            companyId,
+            customerId: action.customerId ? Number(action.customerId) : null,
+            projectId: action.projectId ? Number(action.projectId) : null,
+          },
+        });
+        results.push({ type: "CommunicationLog", id: log.id });
+      }
+
+      if (action.type === "ProjectInternalNote") {
+        const internalNote = await tx.projectInternalNote.create({
+          data: {
+            content: action.content,
+            companyId,
+            projectId: Number(action.projectId),
+            userId: req.user!.userId,
+          },
+        });
+        results.push({ type: "ProjectInternalNote", id: internalNote.id });
+      }
+    }
+
+    await tx.ownerNoteConversion.createMany({
+      data: results.map((r) => ({
+        ownerNoteId: id,
+        targetType: r.type,
+        targetId: r.id,
+        companyId,
+      })),
+    });
+
+    return results;
+  });
+
+  return res.status(201).json({ conversions: created });
 });
 
 export default router;

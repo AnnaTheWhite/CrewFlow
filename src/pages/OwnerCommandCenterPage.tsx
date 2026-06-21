@@ -4,21 +4,26 @@ import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
 import Toast from "../components/ui/Toast";
 import DatePicker from "../components/ui/DatePicker";
+import OwnerNoteConvertPanel from "../components/OwnerNoteConvertPanel";
 import { useToast } from "../hooks/useToast";
 import {
   getOwnerNotes,
   createOwnerNote,
   updateOwnerNote,
   detectOwnerNoteEntities,
+  getOwnerNotesDashboard,
 } from "../services/ownerNotes.service";
 import { getProjects } from "../services/project.service";
 import { getCustomers } from "../services/customers.service";
 import { getEmployees } from "../services/employee.service";
 import {
   OWNER_NOTE_STATUSES,
+  PRIORITIES,
   type DetectedEntities,
   type OwnerNote,
+  type OwnerNoteDashboard,
   type OwnerNoteStatus,
+  type Priority,
 } from "../types/ownerNote";
 import type { Project } from "../types/project";
 import type { Customer } from "../services/customers.service";
@@ -30,7 +35,15 @@ const inputClass =
 const STATUS_STYLES: Record<OwnerNoteStatus, string> = {
   Inbox: "bg-orange-500/20 text-orange-400",
   Reviewed: "bg-blue-500/20 text-blue-400",
+  ReadyToConvert: "bg-emerald-500/20 text-emerald-400",
   Archived: "bg-white/10 text-slate-400",
+};
+
+const PRIORITY_STYLES: Record<Priority, string> = {
+  Low: "bg-white/10 text-slate-400",
+  Medium: "bg-blue-500/20 text-blue-400",
+  High: "bg-orange-500/20 text-orange-400",
+  Urgent: "bg-red-500/20 text-red-400",
 };
 
 export default function OwnerCommandCenterPage() {
@@ -39,6 +52,8 @@ export default function OwnerCommandCenterPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboard, setDashboard] = useState<OwnerNoteDashboard | null>(null);
+  const [convertingNoteId, setConvertingNoteId] = useState<number | null>(null);
 
   // Quick capture form
   const [title, setTitle] = useState("");
@@ -46,6 +61,7 @@ export default function OwnerCommandCenterPage() {
   const [captureProjectId, setCaptureProjectId] = useState("");
   const [captureCustomerId, setCaptureCustomerId] = useState("");
   const [captureEmployeeId, setCaptureEmployeeId] = useState("");
+  const [capturePriority, setCapturePriority] = useState<Priority>("Medium");
   const [isSaving, setIsSaving] = useState(false);
 
   // Suggestions panel — detection only, owner decides what (if anything)
@@ -57,8 +73,14 @@ export default function OwnerCommandCenterPage() {
   const [projectFilter, setProjectFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<Priority | "All">("All");
+  const [pinnedFilter, setPinnedFilter] = useState(false);
 
   const { show, message, triggerToast } = useToast();
+
+  function loadDashboard() {
+    getOwnerNotesDashboard().then(setDashboard).catch(console.error);
+  }
 
   async function loadNotes() {
     try {
@@ -67,6 +89,8 @@ export default function OwnerCommandCenterPage() {
         projectId: projectFilter ? Number(projectFilter) : undefined,
         customerId: customerFilter ? Number(customerFilter) : undefined,
         date: dateFilter || undefined,
+        priority: priorityFilter === "All" ? undefined : priorityFilter,
+        pinned: pinnedFilter || undefined,
       });
       setNotes(data);
     } catch (error) {
@@ -84,12 +108,13 @@ export default function OwnerCommandCenterPage() {
         setEmployees(employeeData);
       })
       .catch(console.error);
+    loadDashboard();
   }, []);
 
   useEffect(() => {
     loadNotes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, projectFilter, customerFilter, dateFilter]);
+  }, [statusFilter, projectFilter, customerFilter, dateFilter, priorityFilter, pinnedFilter]);
 
   // Debounced detection — suggestions only, nothing is linked until the
   // owner explicitly clicks one of the "Link ..." buttons below.
@@ -121,15 +146,18 @@ export default function OwnerCommandCenterPage() {
         projectId: captureProjectId ? Number(captureProjectId) : null,
         customerId: captureCustomerId ? Number(captureCustomerId) : null,
         employeeId: captureEmployeeId ? Number(captureEmployeeId) : null,
+        priority: capturePriority,
       });
       setTitle("");
       setContent("");
       setCaptureProjectId("");
       setCaptureCustomerId("");
       setCaptureEmployeeId("");
+      setCapturePriority("Medium");
       setSuggestions(null);
       triggerToast("Note captured");
       await loadNotes();
+      loadDashboard();
     } catch (error) {
       triggerToast(error instanceof Error ? error.message : "Failed to capture note");
     } finally {
@@ -141,8 +169,32 @@ export default function OwnerCommandCenterPage() {
     try {
       const updated = await updateOwnerNote(note.id, { status });
       setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
+      loadDashboard();
     } catch {
       triggerToast("Failed to update status");
+    }
+  }
+
+  async function handlePriorityChange(note: OwnerNote, priority: Priority) {
+    try {
+      const updated = await updateOwnerNote(note.id, { priority });
+      setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
+      loadDashboard();
+    } catch {
+      triggerToast("Failed to update priority");
+    }
+  }
+
+  async function handlePinToggle(note: OwnerNote) {
+    try {
+      const updated = await updateOwnerNote(note.id, { pinned: !note.pinned });
+      setNotes((prev) => {
+        const next = prev.map((n) => (n.id === note.id ? updated : n));
+        return [...next].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+      });
+      loadDashboard();
+    } catch {
+      triggerToast("Failed to update pin");
     }
   }
 
@@ -153,7 +205,25 @@ export default function OwnerCommandCenterPage() {
         subtitle="Quick capture for thoughts, reminders, and project notes."
       />
 
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl sm:p-8">
+      {dashboard && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            { label: "Inbox", value: dashboard.inbox },
+            { label: "Reviewed", value: dashboard.reviewed },
+            { label: "Ready To Convert", value: dashboard.readyToConvert },
+            { label: "Archived", value: dashboard.archived },
+            { label: "Urgent", value: dashboard.urgent },
+            { label: "Pinned", value: dashboard.pinned },
+          ].map((card) => (
+            <div key={card.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs text-slate-400">{card.label}</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{card.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl sm:p-8">
         <h3 className="text-lg font-semibold text-white">Quick Capture</h3>
 
         <form onSubmit={handleCapture} className="mt-4 space-y-4">
@@ -210,6 +280,18 @@ export default function OwnerCommandCenterPage() {
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.firstName} {employee.lastName}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={capturePriority}
+              onChange={(e) => setCapturePriority(e.target.value as Priority)}
+              className={inputClass}
+            >
+              {PRIORITIES.map((priority) => (
+                <option key={priority} value={priority}>
+                  Priority: {priority}
                 </option>
               ))}
             </select>
@@ -332,13 +414,37 @@ export default function OwnerCommandCenterPage() {
           <DatePicker value={dateFilter} onChange={setDateFilter} placeholder="Filter by date" />
         </div>
 
-        {(statusFilter !== "All" || projectFilter || customerFilter || dateFilter) && (
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value as Priority | "All")}
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-orange-500"
+        >
+          <option value="All">All priorities</option>
+          {PRIORITIES.map((priority) => (
+            <option key={priority} value={priority}>
+              {priority}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => setPinnedFilter((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+            pinnedFilter ? "bg-orange-500 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"
+          }`}
+        >
+          📌 Pinned only
+        </button>
+
+        {(statusFilter !== "All" || projectFilter || customerFilter || dateFilter || priorityFilter !== "All" || pinnedFilter) && (
           <button
             onClick={() => {
               setStatusFilter("All");
               setProjectFilter("");
               setCustomerFilter("");
               setDateFilter("");
+              setPriorityFilter("All");
+              setPinnedFilter(false);
             }}
             className="text-xs text-orange-500 hover:underline"
           >
@@ -357,21 +463,31 @@ export default function OwnerCommandCenterPage() {
           notes.map((note) => (
             <div
               key={note.id}
-              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl"
+              className={`rounded-3xl border p-6 backdrop-blur-xl ${
+                note.pinned ? "border-orange-500/40 bg-orange-500/5" : "border-white/10 bg-white/5"
+              }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h4 className="text-lg font-semibold text-white">{note.title}</h4>
+                  <h4 className="flex items-center gap-2 text-lg font-semibold text-white">
+                    {note.pinned && <span title="Pinned">📌</span>}
+                    {note.title}
+                  </h4>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
                     {note.content}
                   </p>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
-                >
-                  {note.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${PRIORITY_STYLES[note.priority]}`}>
+                    {note.priority}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[note.status]}`}
+                  >
+                    {note.status === "ReadyToConvert" ? "Ready To Convert" : note.status}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -390,20 +506,63 @@ export default function OwnerCommandCenterPage() {
                     🧑‍🔧 {note.employee.firstName} {note.employee.lastName}
                   </span>
                 )}
+                {note.conversions && note.conversions.length > 0 && (
+                  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-400">
+                    ✓ Converted ({note.conversions.length})
+                  </span>
+                )}
                 <span>{new Date(note.createdAt).toLocaleDateString()}</span>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {OWNER_NOTE_STATUSES.filter((s) => s !== note.status).map((status) => (
                   <button
                     key={status}
                     onClick={() => handleStatusChange(note, status)}
                     className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
                   >
-                    Move to {status}
+                    Move to {status === "ReadyToConvert" ? "Ready To Convert" : status}
                   </button>
                 ))}
+
+                <button
+                  onClick={() => handlePinToggle(note)}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+                >
+                  {note.pinned ? "Unpin" : "Pin"}
+                </button>
+
+                <select
+                  value={note.priority}
+                  onChange={(e) => handlePriorityChange(note, e.target.value as Priority)}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 outline-none focus:border-orange-500"
+                >
+                  {PRIORITIES.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => setConvertingNoteId(convertingNoteId === note.id ? null : note.id)}
+                  className="rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-600"
+                >
+                  {convertingNoteId === note.id ? "Hide convert panel" : "Convert..."}
+                </button>
               </div>
+
+              {convertingNoteId === note.id && (
+                <OwnerNoteConvertPanel
+                  note={note}
+                  onClose={() => setConvertingNoteId(null)}
+                  onConverted={() => {
+                    triggerToast("Conversion created");
+                    loadNotes();
+                    loadDashboard();
+                  }}
+                />
+              )}
             </div>
           ))
         )}

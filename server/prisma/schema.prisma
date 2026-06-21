@@ -44,6 +44,13 @@ model Company {
   auditLogs   AuditLog[]
   ownerNotes  OwnerNote[]
 
+  // Phase 3 — Owner Command Center conversion targets.
+  tasks               Task[]
+  reminders           Reminder[]
+  communicationLogs   CommunicationLog[]
+  projectInternalNotes ProjectInternalNote[]
+  ownerNoteConversions OwnerNoteConversion[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -76,10 +83,11 @@ model User {
   employeeId Int?     @unique
   employee   Employee? @relation(fields: [employeeId], references: [id])
 
-  projectNotes       ProjectNote[]
-  projectAttachments ProjectAttachment[]
-  projectActivities  ProjectActivity[]
-  ownerNotes         OwnerNote[]
+  projectNotes         ProjectNote[]
+  projectAttachments   ProjectAttachment[]
+  projectActivities    ProjectActivity[]
+  ownerNotes           OwnerNote[]
+  projectInternalNotes ProjectInternalNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -101,6 +109,7 @@ model Employee {
   assignments ProjectAssignment[]
   user        User?
   ownerNotes  OwnerNote[]
+  tasks       Task[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -135,6 +144,12 @@ model Project {
   attachments ProjectAttachment[]
   activities  ProjectActivity[]
   ownerNotes  OwnerNote[]
+
+  // Phase 3 — Owner Command Center conversion targets.
+  tasks             Task[]
+  reminders         Reminder[]
+  communicationLogs CommunicationLog[]
+  internalNotes     ProjectInternalNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -227,6 +242,10 @@ model Customer {
   projects   Project[]
   ownerNotes OwnerNote[]
 
+  // Phase 3 — Owner Command Center conversion targets.
+  reminders         Reminder[]
+  communicationLogs CommunicationLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -259,9 +278,18 @@ model OwnerNote {
   title   String
   content String
 
-  // "Inbox" | "Reviewed" | "Archived" — see constants/ownerNoteStatuses.ts.
-  // Free-form on purpose, same rationale as ProjectAttachment.category.
+  // "Inbox" | "Reviewed" | "ReadyToConvert" | "Archived" — see
+  // constants/ownerNoteStatuses.ts. Free-form on purpose, same rationale as
+  // ProjectAttachment.category.
   status String @default("Inbox")
+
+  // Phase 3 — "Low" | "Medium" | "High" | "Urgent", see constants/priorities.ts.
+  // Free-form for the same reason as `status`. Transfers to Task/Reminder
+  // when a note is converted.
+  priority String @default("Medium")
+
+  // Phase 3 — pinned notes always sort first, ignoring normal ordering.
+  pinned Boolean @default(false)
 
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])
@@ -281,8 +309,135 @@ model OwnerNote {
   employeeId Int?
   employee   Employee? @relation(fields: [employeeId], references: [id])
 
+  // Phase 3 — every conversion this note has produced (Task, Reminder,
+  // CommunicationLog, ProjectInternalNote). Used for duplicate-protection
+  // ("already converted") display and audit history.
+  conversions OwnerNoteConversion[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Phase 3 — minimum Task architecture needed for Owner Command Center
+// conversions. Deliberately not a full task-management module (no
+// checklists, no templates, no sub-tasks) — see OwnerNote conversion flow
+// in ownerNotes.routes.ts. Designed to be extended later without breaking
+// this shape.
+model Task {
+  id Int @id @default(autoincrement())
+
+  title       String
+  description String?
+
+  // "Open" | "InProgress" | "Done" — see constants/taskStatuses.ts.
+  status String @default("Open")
+
+  // "Low" | "Medium" | "High" | "Urgent" — see constants/priorities.ts.
+  priority String @default("Medium")
+
+  dueDate DateTime?
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  employeeId Int?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Phase 3 — Owner Note → Reminder conversion target. Notification delivery
+// (push/PWA) is a future extension point; this only stores the reminder
+// itself.
+model Reminder {
+  id Int @id @default(autoincrement())
+
+  title   String
+  dueDate DateTime?
+
+  // "Low" | "Medium" | "High" | "Urgent" — see constants/priorities.ts.
+  priority String @default("Medium")
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  customerId Int?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Phase 3 — Owner Note → Communication Log conversion target. Records a
+// customer interaction (call/email/meeting) the owner logged from a note.
+model CommunicationLog {
+  id Int @id @default(autoincrement())
+
+  // "PhoneCall" | "Email" | "Meeting" | "Other" — see
+  // constants/communicationTypes.ts.
+  type    String @default("Other")
+  content String
+
+  occurredAt DateTime @default(now())
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  customerId Int?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// Phase 3 — Owner Note → Project Internal Note conversion target.
+// Deliberately separate from ProjectNote: ProjectNote is visible to
+// assigned employees, this is owner/developer-only (same visibility rule
+// as OwnerNote itself).
+model ProjectInternalNote {
+  id Int @id @default(autoincrement())
+
+  content String
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// Phase 3 — audit trail of every conversion an OwnerNote has produced.
+// `targetType` + `targetId` point at the created Task/Reminder/
+// CommunicationLog/ProjectInternalNote row. Drives duplicate-protection
+// ("already converted") checks and the conversion history view.
+model OwnerNoteConversion {
+  id Int @id @default(autoincrement())
+
+  ownerNoteId Int
+  ownerNote   OwnerNote @relation(fields: [ownerNoteId], references: [id])
+
+  // "Task" | "Reminder" | "CommunicationLog" | "ProjectInternalNote"
+  targetType String
+  targetId   Int
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model AuditLog {

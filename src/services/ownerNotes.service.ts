@@ -1,11 +1,22 @@
 import { API_URL, authHeaders } from "./api";
-import type { DetectedEntities, OwnerNote, OwnerNoteStatus } from "../types/ownerNote";
+import type {
+  ConversionAction,
+  DetectedEntities,
+  OwnerNote,
+  OwnerNoteConversion,
+  OwnerNoteDashboard,
+  OwnerNoteStatus,
+  Priority,
+  ProjectContext,
+} from "../types/ownerNote";
 
 export type OwnerNoteFilters = {
   status?: OwnerNoteStatus;
   projectId?: number;
   customerId?: number;
   date?: string; // "YYYY-MM-DD"
+  priority?: Priority;
+  pinned?: boolean;
 };
 
 function buildQuery(filters: OwnerNoteFilters = {}): string {
@@ -14,6 +25,8 @@ function buildQuery(filters: OwnerNoteFilters = {}): string {
   if (filters.projectId) params.set("projectId", String(filters.projectId));
   if (filters.customerId) params.set("customerId", String(filters.customerId));
   if (filters.date) params.set("date", filters.date);
+  if (filters.priority) params.set("priority", filters.priority);
+  if (filters.pinned) params.set("pinned", "true");
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -27,6 +40,30 @@ export async function getOwnerNotes(
 
   if (!response.ok) {
     throw new Error("Failed to load notes");
+  }
+
+  return response.json();
+}
+
+export async function getOwnerNotesDashboard(): Promise<OwnerNoteDashboard> {
+  const response = await fetch(`${API_URL}/owner-notes/dashboard`, {
+    headers: { ...authHeaders() },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load dashboard");
+  }
+
+  return response.json();
+}
+
+export async function getProjectContext(projectId: number): Promise<ProjectContext> {
+  const response = await fetch(`${API_URL}/owner-notes/context/${projectId}`, {
+    headers: { ...authHeaders() },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load project context");
   }
 
   return response.json();
@@ -54,6 +91,8 @@ export async function createOwnerNote(data: {
   projectId?: number | null;
   customerId?: number | null;
   employeeId?: number | null;
+  priority?: Priority;
+  pinned?: boolean;
 }): Promise<OwnerNote> {
   const response = await fetch(`${API_URL}/owner-notes`, {
     method: "POST",
@@ -78,6 +117,8 @@ export async function updateOwnerNote(
     projectId?: number | null;
     customerId?: number | null;
     employeeId?: number | null;
+    priority?: Priority;
+    pinned?: boolean;
   }
 ): Promise<OwnerNote> {
   const response = await fetch(`${API_URL}/owner-notes/${id}`, {
@@ -89,6 +130,36 @@ export async function updateOwnerNote(
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error || "Failed to update note");
+  }
+
+  return response.json();
+}
+
+export async function getOwnerNoteConversions(id: number): Promise<OwnerNoteConversion[]> {
+  const response = await fetch(`${API_URL}/owner-notes/${id}/conversions`, {
+    headers: { ...authHeaders() },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load conversion history");
+  }
+
+  return response.json();
+}
+
+export async function convertOwnerNote(
+  id: number,
+  actions: ConversionAction[]
+): Promise<{ conversions: { type: string; id: number }[] }> {
+  const response = await fetch(`${API_URL}/owner-notes/${id}/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ actions }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to convert note");
   }
 
   return response.json();
