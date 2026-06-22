@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Button from "../components/ui/Button";
+import PasswordInput from "../components/ui/PasswordInput";
 import { resetPassword } from "../services/auth.service";
 import { useTranslation } from "../i18n";
 
@@ -60,12 +61,11 @@ export default function ResetPasswordPage() {
               <label className="block text-sm text-white/70">
                 {t("auth.resetPassword.newPassword")}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-orange-500"
               />
             </div>
 
@@ -73,12 +73,11 @@ export default function ResetPasswordPage() {
               <label className="block text-sm text-white/70">
                 {t("auth.resetPassword.confirmPassword")}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-orange-500"
               />
             </div>
 

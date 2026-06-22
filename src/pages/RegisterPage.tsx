@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { register } from "../services/auth.service";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/Button";
+import PasswordInput from "../components/ui/PasswordInput";
 import { useTranslation } from "../i18n";
 
 export default function RegisterPage() {
@@ -72,13 +73,12 @@ export default function RegisterPage() {
 
         <div className="space-y-2">
           <label className="block text-sm text-white/70">{t("auth.register.password")}</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={6}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-orange-500"
           />
         </div>
 

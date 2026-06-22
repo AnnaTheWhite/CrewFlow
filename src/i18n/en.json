@@ -32,6 +32,8 @@
     "loading": "Loading...",
     "confirm": "Confirm",
     "close": "Close",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "search": "Search",
     "clearFilters": "Clear filters",
     "all": "All",

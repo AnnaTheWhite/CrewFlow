@@ -32,6 +32,8 @@
     "loading": "Betöltés...",
     "confirm": "Megerősítés",
     "close": "Bezárás",
+    "showPassword": "Jelszó megjelenítése",
+    "hidePassword": "Jelszó elrejtése",
     "search": "Keresés",
     "clearFilters": "Szűrők törlése",
     "all": "Mind",
