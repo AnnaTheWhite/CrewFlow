@@ -24,22 +24,23 @@ export default function LandingNavbar() {
         </nav>
 
         {/* LanguageSwitcher + Log in + Sign up form one header control
-            group — all three share the same h-10 height and rounded-xl
-            radius. min-w-0 + shrink-0 on each child + capped widths on the
-            LanguageSwitcher keep this whole group from ever pushing wider
-            than the viewport, so it always stays on one row without
-            clipping either auth button. */}
-        <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
+            group — all three share the same h-9 height and rounded-xl
+            radius (matches the compact LanguageSwitcher trigger). min-w-0 +
+            shrink-0 on each child + the LanguageSwitcher's own fixed width
+            keep this whole group from ever pushing wider than the
+            viewport, so it always stays on one row without clipping
+            either auth button. */}
+        <div className="flex h-9 min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
           <LanguageSwitcher />
           <Link
             to="/login"
-            className="flex h-10 shrink-0 items-center whitespace-nowrap rounded-xl px-2.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-4 sm:text-sm"
+            className="flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl px-2.5 text-xs font-medium text-white transition hover:bg-white/10 sm:px-4 sm:text-sm"
           >
             {t("landing.nav.logIn")}
           </Link>
           <Link
             to="/register"
-            className="flex h-10 shrink-0 items-center whitespace-nowrap rounded-xl bg-orange-500 px-2.5 text-xs font-medium text-white transition hover:bg-orange-600 sm:px-4 sm:text-sm"
+            className="flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl bg-orange-500 px-2.5 text-xs font-medium text-white transition hover:bg-orange-600 sm:px-4 sm:text-sm"
           >
             {t("landing.nav.signUp")}
           </Link>

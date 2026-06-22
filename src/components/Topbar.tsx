@@ -65,14 +65,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
         <LanguageSwitcher />
 
-        {/* Same h-10 + px-3 sm:px-4 + rounded-xl as LanguageSwitcher above,
-            so the two controls always line up — and whitespace-nowrap so
-            "Log out" never wraps to two lines on narrow screens. */}
+        {/* Same h-9 + rounded-xl as the LanguageSwitcher trigger above, so
+            the two controls always line up — and whitespace-nowrap so
+            "Kijelentkezés" never wraps to two lines on narrow screens. */}
         <button
           onClick={handleLogout}
           className="
             flex
-            h-10
+            h-9
             shrink-0
             items-center
             whitespace-nowrap
